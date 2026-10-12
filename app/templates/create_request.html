@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block title %}Create Certificate Request - CertifyDesk{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-9 col-md-11">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <div>
+        <h3 class="fw-bold mb-1">New Certificate Request</h3>
+        <p class="text-muted mb-0">Fill out the mandatory details to submit an official request.</p>
+      </div>
+      <a href="/dashboard" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
+      </a>
+    </div>
+
+    <!-- Active Quota Warning if 5 reached -->
+    {% if active_count >= 5 %}
+      <div class="alert alert-danger d-flex align-items-center mb-4" role="alert">
+        <i class="bi bi-exclamation-triangle-fill fs-4 me-3"></i>
+        <div>
+          <strong>Quota Limit Reached:</strong> You currently have {{ active_count }} active requests (Limit: 5). 
+          Per rule <strong>BR1</strong>, you cannot submit a new request until one of your active requests is COMPLETED or CANCELLED.
+        </div>
+      </div>
+    {% endif %}
+
+    <div class="row g-4">
+      <!-- Left Column: Form -->
+      <div class="col-md-7">
+        <div class="card p-4">
+          <div id="formErrorAlert" class="alert alert-danger d-none mb-3" role="alert"></div>
+
+          <form id="createRequestForm" novalidate>
+            <!-- Hidden Idempotency Key -->
+            <input type="hidden" id="idempotency_key" name="idempotency_key" value="">
+
+            <!-- Service Selection -->
+            <div class="mb-3">
+              <label for="resource_id" class="form-label fw-semibold">Certificate Service <span class="text-danger">*</span></label>
+              <select class="form-select" id="resource_id" name="resource_id" required>
+                {% for s in services %}
+                  <option value="{{ s.id }}" 
+                          data-capacity="{{ s.capacity }}" 
+                          data-status="{{ s.status }}" 
+                          data-base="{{ s.base_value }}"
+                          data-charge="{{ 'true' if s.charge_applicable else 'false' }}"
+                          {% if selected_resource_id == s.id %}selected{% endif %}>
+                    {{ s.service_name }} ({{ s.id }}) - Capacity: {{ s.capacity }} - Status: {{ s.status }}
+                  </option>
+                {% endfor %}
+              </select>
+              <div class="form-text">Choose the target institutional certificate catalog.</div>
+            </div>
+
+            <!-- Applicant Name -->
+            <div class="mb-3">
+              <label for="name" class="form-label fw-semibold">Applicant Full Name <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="name" name="name" value="{{ current_user.name }}" required placeholder="e.g. John Doe">
+              <div class="form-text">Must match official registration record (cannot be blank).</div>
+            </div>
+
+            <!-- Phone Number -->
+            <div class="mb-3">
+              <label for="phone" class="form-label fw-semibold">Phone Number <span class="text-danger">*</span></label>
+              <input type="tel" class="form-control" id="phone" name="phone" value="{{ current_user.phone }}" maxlength="10" required placeholder="10-digit mobile number">
+              <div class="form-text">Must contain exactly 10 numeric digits (BR5).</div>
+            </div>
+
+            <!-- Reference Number -->
+            <div class="mb-3">
+              <label for="reference" class="form-label fw-semibold">Institutional Reference / Roll No <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="reference" name="reference" required placeholder="e.g. 717722PR101 / REG-2026-004">
+              <div class="form-text">Unique identification reference for certificate processing.</div>
+            </div>
+
+            <!-- Base Value -->
+            <div class="mb-3">
+              <label for="base_value" class="form-label fw-semibold">Nominal Base Value (₹)</label>
+              <input type="number" class="form-control" id="base_value" name="base_value" step="0.01" value="500.00" min="0" required>
+              <div class="form-text">Used for institutional fee assessment (BR4).</div>
+            </div>
+
+            <!-- Description / Purpose -->
+            <div class="mb-4">
+              <label for="description" class="form-label fw-semibold">Purpose & Description <span class="text-danger">*</span></label>
+              <textarea class="form-control" id="description" name="description" rows="3" required placeholder="Specify why the certificate is needed (e.g. Higher studies admission, passport application)..."></textarea>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" id="submitBtn" class="btn btn-primary w-100 py-2 fw-semibold" {% if active_count >= 5 %}disabled{% endif %}>
+              <i class="bi bi-send-fill me-1"></i> Submit Certificate Request
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Right Column: Live Summary & Fee Calculation Card -->
+      <div class="col-md-5">
+        <div class="card p-3 mb-3">
+          <h5 class="fw-bold mb-3"><i class="bi bi-receipt me-2 text-primary"></i>Fee & Resource Preview</h5>
+          
+          <div class="mb-3 pb-3 border-bottom">
+            <span class="text-muted small d-block">Service Operational Status:</span>
+            <span id="statusBadge" class="badge bg-success">ACTIVE</span>
+          </div>
+
+          <div class="mb-3 pb-3 border-bottom">
+            <span class="text-muted small d-block">Available Reservable Capacity:</span>
+            <span id="capacityDisplay" class="fw-bold fs-5 text-primary">10 units available</span>
+          </div>
+
+          <div class="mb-3 pb-3 border-bottom">
+            <span class="text-muted small d-block">Calculated Service Charge:</span>
+            <div class="d-flex align-items-baseline gap-2">
+              <span id="chargeDisplay" class="fw-bold fs-3 text-success">₹50.00</span>
+            </div>
+            <p id="chargeExplanation" class="small text-muted mt-1 mb-0">Base value is below ₹1,000.00: standard service charge of ₹50.00 applies.</p>
+          </div>
+
+          <div class="bg-light p-2 rounded small text-muted">
+            <i class="bi bi-shield-check text-primary me-1"></i>
+            <strong>Business Rule BR4:</strong><br>
+            &bull; Base value &lt; ₹1,000 &rarr; ₹50 fee<br>
+            &bull; Base value &ge; ₹1,000 &rarr; ₹0 fee<br>
+            &bull; Non-chargeable service &rarr; ₹0 fee
+          </div>
+        </div>
+
+        <div class="card p-3 bg-light border-0">
+          <h6 class="fw-bold"><i class="bi bi-lock-fill text-secondary me-1"></i>Idempotency Guard</h6>
+          <p class="small text-muted mb-0">
+            A cryptographically isolated idempotency key is embedded with this form. Re-submitting the same payload will never reserve extra resource capacity or create redundant duplicates.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

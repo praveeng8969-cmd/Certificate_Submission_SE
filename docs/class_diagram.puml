@@ -1,0 +1,103 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam roundcorner 8
+skinparam shadowing false
+skinparam classFontStyle bold
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+
+enum UserRole {
+  USER
+  ADMINISTRATOR
+}
+
+enum EntityStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum RequestStatus {
+  SUBMITTED
+  APPROVED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+class User {
+  +id: String
+  +name: String
+  +role: UserRole
+  +status: EntityStatus
+  +phone: String
+  +requests: List<ServiceRequest>
+}
+
+class Resource {
+  +id: String
+  +service_name: String
+  +capacity: Integer
+  +status: EntityStatus
+  +base_value: Decimal
+  +charge_applicable: Boolean
+  +requests: List<ServiceRequest>
+}
+
+class ServiceRequest {
+  +id: String
+  +user_id: String
+  +resource_id: String
+  +name: String
+  +phone: String
+  +description: String
+  +reference: String
+  +base_value: Decimal
+  +service_charge: Decimal
+  +status: RequestStatus
+  +snapshot_data: Dict
+  +created_at: DateTime
+  +updated_at: DateTime
+  +idempotency_key: String
+  +resource_reserved: Boolean
+  +resource_released: Boolean
+  +status_history: List<RequestStatusHistory>
+}
+
+class RequestStatusHistory {
+  +id: Integer
+  +reference_id: String
+  +actor_id: String
+  +old_status: String
+  +new_status: String
+  +event_at: DateTime
+}
+
+class ValidationService {
+  +validate_details(name: String, phone: String, description: String, reference: String): Tuple<Boolean, String>
+  +validate_eligibility(user: User, resource: Resource): Tuple<Boolean, String>
+  +validate_request_limit(user_id: String, db: Session): Tuple<Boolean, String>
+  +calculate_charge(resource: Resource, base_value: Decimal): Decimal
+  +validate_transition(current_status: RequestStatus, target_status: RequestStatus, actor_role: UserRole): Tuple<Boolean, String>
+}
+
+class RequestService {
+  +create_request(db: Session, user_id: String, payload: RequestCreateSchema, idempotency_key: String): ServiceRequest
+  +submit_request(db: Session, request: ServiceRequest): ServiceRequest
+  +get_user_requests(db: Session, user_id: String): List<ServiceRequest>
+  +get_all_requests(db: Session): List<ServiceRequest>
+  +advance_status(db: Session, request_id: String, actor_id: String, target_status: RequestStatus): ServiceRequest
+  +cancel_request(db: Session, request_id: String, user_id: String): ServiceRequest
+}
+
+' Relationships & Multiplicities
+User "1" *-- "0..*" ServiceRequest : creates >
+Resource "1" *-- "0..*" ServiceRequest : referenced_by >
+ServiceRequest "1" *-- "1..*" RequestStatusHistory : records >
+User "1" .. "0..*" RequestStatusHistory : acts_as >
+
+RequestService ..> ValidationService : uses
+RequestService ..> ServiceRequest : manages
+RequestService ..> Resource : modifies_capacity
+RequestService ..> RequestStatusHistory : creates_record
+
+@enduml

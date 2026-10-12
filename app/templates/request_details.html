@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block title %}Request Details - {{ req.id }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-10 col-md-11">
+    <!-- Top Bar -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div>
+        <div class="d-flex align-items-center gap-2 mb-1">
+          <h3 class="fw-bold mb-0">Request: {{ req.id }}</h3>
+          <span class="status-badge status-{{ req.status }} fs-6">{{ req.status }}</span>
+        </div>
+        <p class="text-muted mb-0">Submitted by <strong>{{ req.user.name }} ({{ req.user_id }})</strong> on {{ req.created_at.strftime('%d %B %Y at %H:%M:%S') if req.created_at else 'N/A' }}</p>
+      </div>
+      <div class="d-flex gap-2">
+        {% if current_user.role == 'USER' %}
+          <a href="/requests/my" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i> Back to My Requests
+          </a>
+          {% if req.status == 'SUBMITTED' and req.user_id == current_user.id %}
+            <button class="btn btn-outline-danger btn-sm" onclick="cancelThisRequest('{{ req.id }}')">
+              <i class="bi bi-x-circle me-1"></i> Cancel Request
+            </button>
+          {% endif %}
+        {% else %}
+          <a href="/admin" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i> Back to Admin Queue
+          </a>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if is_submitted %}
+      <div class="alert alert-success alert-dismissible fade show d-flex align-items-center mb-4" role="alert">
+        <i class="bi bi-check-circle-fill fs-4 me-2"></i>
+        <div>
+          <strong>Submission Successful!</strong> Your certificate request has been recorded with status <code>SUBMITTED</code>. One unit of resource capacity was atomically reserved.
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    {% endif %}
+
+    <div class="row g-4">
+      <!-- Left Column: Request Details & Historical Snapshot -->
+      <div class="col-md-7">
+        <!-- Live Request Summary Card -->
+        <div class="card p-4 mb-4">
+          <h5 class="fw-bold mb-3"><i class="bi bi-info-circle text-primary me-2"></i>Current Request Summary</h5>
+          <div class="row g-3">
+            <div class="col-sm-6">
+              <span class="text-muted small d-block">Service Requested:</span>
+              <strong>{{ req.resource.service_name }}</strong> (<code>{{ req.resource_id }}</code>)
+            </div>
+            <div class="col-sm-6">
+              <span class="text-muted small d-block">Institutional Reference:</span>
+              <code>{{ req.reference }}</code>
+            </div>
+            <div class="col-sm-6">
+              <span class="text-muted small d-block">Applicant Name:</span>
+              <span>{{ req.name }}</span>
+            </div>
+            <div class="col-sm-6">
+              <span class="text-muted small d-block">Contact Phone:</span>
+              <span>{{ req.phone }}</span>
+            </div>
+            <div class="col-sm-6">
+              <span class="text-muted small d-block">Base Value:</span>
+              <span>₹{{ "%.2f"|format(req.base_value) }}</span>
+            </div>
+            <div class="col-sm-6">
+              <span class="text-muted small d-block">Assessed Service Charge:</span>
+              <span class="fw-bold text-success fs-5">₹{{ "%.2f"|format(req.service_charge) }}</span>
+            </div>
+            <div class="col-12">
+              <span class="text-muted small d-block">Description / Purpose:</span>
+              <p class="mb-0 bg-light p-2 rounded small">{{ req.description }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Immutable Snapshot Card (BR3) -->
+        <div class="card p-4">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="fw-bold mb-0"><i class="bi bi-camera-fill text-secondary me-2"></i>Immutable Submitted Snapshot (BR3)</h5>
+            <span class="badge bg-secondary">Tamper-Proof Audit</span>
+          </div>
+          <p class="small text-muted mb-2">
+            This snapshot preserves the exact state of service parameters at the precise moment of submission. Future changes to resource master tables do not alter this record.
+          </p>
+          <pre class="bg-dark text-light p-3 rounded small mb-0" style="max-height: 250px; overflow-y: auto;"><code>{{ req.snapshot_data | tojson(indent=2) }}</code></pre>
+        </div>
+      </div>
+
+      <!-- Right Column: Status Lifecycle Timeline & Controls -->
+      <div class="col-md-5">
+        <!-- Status History Timeline -->
+        <div class="card p-4 mb-4">
+          <h5 class="fw-bold mb-3"><i class="bi bi-clock-history text-primary me-2"></i>Status History Timeline</h5>
+          
+          <div class="timeline">
+            {% for h in req.status_history %}
+              <div class="timeline-item">
+                <div class="timeline-marker"></div>
+                <div class="timeline-content">
+                  <div class="d-flex justify-content-between align-items-baseline">
+                    <span class="status-badge status-{{ h.new_status }} small">{{ h.new_status }}</span>
+                    <small class="text-muted">{{ h.event_at.strftime('%H:%M:%S, %d %b') if h.event_at else '' }}</small>
+                  </div>
+                  <div class="small text-muted mt-1">
+                    {% if h.old_status %}
+                      Transitioned from <strong>{{ h.old_status }}</strong>
+                    {% else %}
+                      Initial Submission
+                    {% endif %}
+                    &bull; Actor: <code>{{ h.actor_id }}</code>
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- System Parameters Card -->
+        <div class="card p-3 bg-light border-0">
+          <h6 class="fw-bold mb-2"><i class="bi bi-gear-fill me-1 text-muted"></i>Audit Metadata</h6>
+          <div class="small text-muted">
+            <div><strong>Idempotency Key:</strong> <code>{{ req.idempotency_key }}</code></div>
+            <div><strong>Resource Reserved:</strong> <span class="badge {% if req.resource_reserved %}bg-success{% else %}bg-secondary{% endif %}">{{ req.resource_reserved }}</span></div>
+            <div><strong>Resource Released:</strong> <span class="badge {% if req.resource_released %}bg-warning text-dark{% else %}bg-light text-muted border{% endif %}">{{ req.resource_released }}</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function cancelThisRequest(requestId) {
+  if (!confirm(`Confirm cancellation of request ${requestId}? This will restore 1 unit of capacity.`)) return;
+  try {
+    const res = await fetch(`/api/requests/${requestId}/cancel`, { method: 'POST' });
+    if (res.ok) {
+      alert('Request cancelled successfully.');
+      window.location.reload();
+    } else {
+      const err = await res.json();
+      alert(`Error cancelling: ${err.detail || 'Unknown error'}`);
+    }
+  } catch (e) {
+    alert(`Network error: ${e.message}`);
+  }
+}
+</script>
+{% endblock %}

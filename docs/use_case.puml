@@ -1,0 +1,62 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+skinparam roundcorner 8
+skinparam shadowing false
+skinparam handwritten false
+skinparam monochrome false
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+
+actor "User" as user #E8F0FE
+actor "Administrator" as admin #FCE8E6
+
+rectangle "Certificate Request Management System" {
+  ' User Use Cases
+  usecase "Select User Account" as UC_SelectUser
+  usecase "Create Certificate Request" as UC_CreateReq
+  usecase "Enter Certificate Details" as UC_EnterDetails
+  usecase "Validate Details & Eligibility" as UC_Validate
+  usecase "View Charge Summary" as UC_ViewCharge
+  usecase "Submit Request" as UC_SubmitReq
+  usecase "View Own Requests" as UC_ViewOwn
+  usecase "View Request Details & Status" as UC_ViewDetails
+  usecase "Cancel Eligible Request" as UC_CancelReq
+
+  ' Administrator Use Cases
+  usecase "Select Administrator Account" as UC_SelectAdmin
+  usecase "View All Requests" as UC_ViewAll
+  usecase "View Request Details & History" as UC_ViewAdminDetails
+  usecase "Approve Submitted Request" as UC_ApproveReq
+  usecase "Advance Request to In Progress" as UC_AdvanceProgress
+  usecase "Complete Request" as UC_CompleteReq
+}
+
+' User Associations
+user --> UC_SelectUser
+user --> UC_CreateReq
+user --> UC_ViewOwn
+user --> UC_ViewDetails
+user --> UC_CancelReq
+
+' User Includes & Extends
+UC_CreateReq ..> UC_EnterDetails : <<include>>
+UC_CreateReq ..> UC_Validate : <<include>>
+UC_CreateReq ..> UC_ViewCharge : <<include>>
+UC_CreateReq ..> UC_SubmitReq : <<include>>
+UC_CancelReq .> UC_ViewDetails : <<extend>>
+
+' Admin Associations
+admin --> UC_SelectAdmin
+admin --> UC_ViewAll
+admin --> UC_ViewAdminDetails
+admin --> UC_ApproveReq
+admin --> UC_AdvanceProgress
+admin --> UC_CompleteReq
+
+' Admin dependencies/generalizations
+UC_ApproveReq .> UC_ViewAdminDetails : <<extend>>
+UC_AdvanceProgress .> UC_ViewAdminDetails : <<extend>>
+UC_CompleteReq .> UC_ViewAdminDetails : <<extend>>
+
+@enduml

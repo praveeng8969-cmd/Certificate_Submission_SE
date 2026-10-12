@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block title %}User Dashboard - CertifyDesk{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h3 class="fw-bold mb-1">Welcome, {{ current_user.name }}</h3>
+    <p class="text-muted mb-0">Applicant ID: <code>{{ current_user.id }}</code> &bull; Role: <strong>{{ current_user.role }}</strong></p>
+  </div>
+  <div>
+    <a href="/requests/new" class="btn btn-primary d-inline-flex align-items-center gap-2">
+      <i class="bi bi-plus-lg"></i>
+      <span>Create Certificate Request</span>
+    </a>
+  </div>
+</div>
+
+<!-- Stat Cards -->
+<div class="row g-3 mb-4">
+  <div class="col-md-3 col-sm-6">
+    <div class="card stat-card p-3">
+      <span class="text-muted small text-uppercase fw-bold">Total Requests</span>
+      <h3 class="fw-bold mt-1 mb-0">{{ stats.total }}</h3>
+    </div>
+  </div>
+  <div class="col-md-3 col-sm-6">
+    <div class="card stat-card stat-active p-3">
+      <span class="text-muted small text-uppercase fw-bold">Active Requests (Max 5)</span>
+      <div class="d-flex align-items-baseline gap-2">
+        <h3 class="fw-bold mt-1 mb-0 {% if stats.active >= 5 %}text-danger{% else %}text-primary{% endif %}">{{ stats.active }}</h3>
+        <span class="text-muted small">/ 5 limit</span>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-sm-6">
+    <div class="card stat-card stat-completed p-3">
+      <span class="text-muted small text-uppercase fw-bold">Completed</span>
+      <h3 class="fw-bold mt-1 mb-0 text-success">{{ stats.completed }}</h3>
+    </div>
+  </div>
+  <div class="col-md-3 col-sm-6">
+    <div class="card stat-card stat-cancelled p-3">
+      <span class="text-muted small text-uppercase fw-bold">Cancelled</span>
+      <h3 class="fw-bold mt-1 mb-0 text-danger">{{ stats.cancelled }}</h3>
+    </div>
+  </div>
+</div>
+
+<!-- Available Certificate Services Catalog -->
+<div class="row mb-4">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-bold"><i class="bi bi-grid-3x3-gap-fill text-primary me-2"></i>Available Certificate Services (Catalog Master)</span>
+        <span class="badge bg-light text-dark">Real-Time Capacity Tracked</span>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Service Code</th>
+                <th>Certificate Name</th>
+                <th>Catalog Status</th>
+                <th>Available Capacity</th>
+                <th>Base Value</th>
+                <th>Fee Rule</th>
+                <th class="text-end">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for res in services %}
+                <tr>
+                  <td><code>{{ res.id }}</code></td>
+                  <td class="fw-semibold">{{ res.service_name }}</td>
+                  <td>
+                    {% if res.status == 'ACTIVE' %}
+                      <span class="badge bg-success">ACTIVE</span>
+                    {% else %}
+                      <span class="badge bg-secondary">INACTIVE</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <span class="fw-bold {% if res.capacity == 0 %}text-danger{% elif res.capacity <= 2 %}text-warning{% else %}text-success{% endif %}">
+                      {{ res.capacity }} units
+                    </span>
+                  </td>
+                  <td>₹{{ "%.2f"|format(res.base_value) }}</td>
+                  <td>
+                    {% if res.charge_applicable %}
+                      <span class="small text-muted">&lt; ₹1,000 &rarr; ₹50 | &ge; ₹1,000 &rarr; ₹0</span>
+                    {% else %}
+                      <span class="badge bg-light text-muted">No Charge Applicable (₹0)</span>
+                    {% endif %}
+                  </td>
+                  <td class="text-end">
+                    {% if res.status == 'ACTIVE' and res.capacity > 0 %}
+                      <a href="/requests/new?resource_id={{ res.id }}" class="btn btn-sm btn-outline-primary">
+                        Apply Now
+                      </a>
+                    {% else %}
+                      <button class="btn btn-sm btn-outline-secondary disabled" disabled>
+                        Unavailable
+                      </button>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Recent User Requests -->
+<div class="row">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-bold"><i class="bi bi-clock-history text-primary me-2"></i>Recent Certificate Requests</span>
+        <a href="/requests/my" class="btn btn-sm btn-outline-secondary">View All</a>
+      </div>
+      <div class="card-body p-0">
+        {% if recent_requests %}
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Request ID</th>
+                  <th>Certificate Service</th>
+                  <th>Reference</th>
+                  <th>Submitted At</th>
+                  <th>Charge</th>
+                  <th>Status</th>
+                  <th class="text-end">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for r in recent_requests %}
+                  <tr>
+                    <td><code>{{ r.id }}</code></td>
+                    <td>{{ r.resource.service_name }}</td>
+                    <td><code>{{ r.reference }}</code></td>
+                    <td>{{ r.created_at.strftime('%d %b %Y, %H:%M') if r.created_at else 'N/A' }}</td>
+                    <td>₹{{ "%.2f"|format(r.service_charge) }}</td>
+                    <td>
+                      <span class="status-badge status-{{ r.status }}">{{ r.status }}</span>
+                    </td>
+                    <td class="text-end">
+                      <a href="/requests/{{ r.id }}" class="btn btn-sm btn-light border">Details</a>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="text-center py-5">
+            <i class="bi bi-inbox text-muted display-4"></i>
+            <p class="text-muted mt-2">No certificate requests submitted yet.</p>
+            <a href="/requests/new" class="btn btn-primary btn-sm">Create First Request</a>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
