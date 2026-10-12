@@ -38,9 +38,9 @@ def view_accounts(
 ):
     all_users = get_all_users(db)
     return templates.TemplateResponse(
-        "account_select.html",
-        {
-            "request": request,
+        request=request,
+        name="account_select.html",
+        context={
             "current_user": current_user,
             "all_users": all_users,
             "active_page": "accounts"
@@ -74,9 +74,9 @@ def view_user_dashboard(
     }
 
     return templates.TemplateResponse(
-        "user_dashboard.html",
-        {
-            "request": request,
+        request=request,
+        name="user_dashboard.html",
+        context={
             "current_user": current_user,
             "all_users": all_users,
             "services": services,
@@ -103,9 +103,9 @@ def view_create_request(
     active_count = len([r for r in user_requests if r.status in ["SUBMITTED", "APPROVED", "IN_PROGRESS"]])
 
     return templates.TemplateResponse(
-        "create_request.html",
-        {
-            "request": request,
+        request=request,
+        name="create_request.html",
+        context={
             "current_user": current_user,
             "all_users": all_users,
             "services": services,
@@ -126,9 +126,9 @@ def view_my_requests(
     user_requests = RequestService.get_user_requests(db, current_user.id)
 
     return templates.TemplateResponse(
-        "my_requests.html",
-        {
-            "request": request,
+        request=request,
+        name="my_requests.html",
+        context={
             "current_user": current_user,
             "all_users": all_users,
             "requests": user_requests,
@@ -156,9 +156,9 @@ def view_request_details(
     all_users = get_all_users(db)
 
     return templates.TemplateResponse(
-        "request_details.html",
-        {
-            "request": request,
+        request=request,
+        name="request_details.html",
+        context={
             "current_user": current_user,
             "all_users": all_users,
             "req": req,
@@ -181,9 +181,9 @@ def view_admin_dashboard(
     all_requests = RequestService.get_all_requests(db)
 
     return templates.TemplateResponse(
-        "admin_dashboard.html",
-        {
-            "request": request,
+        request=request,
+        name="admin_dashboard.html",
+        context={
             "current_user": current_user,
             "all_users": all_users,
             "all_requests": all_requests,
